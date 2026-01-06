@@ -1,0 +1,24 @@
+# See docs at: https://mystmd.org/guide/frontmatter
+version: 1
+project:
+  id: ee206a98-e151-4e0f-b588-4d09bdb35e6d
+  title: Circularly Polarized LED Illuminator
+  description: A design for a LED illumination module emitting circularly polarized light for optogenetic control of protein states.
+  keywords:
+    - optics
+    - polarization
+    - LED
+    - optogenetics
+  authors:
+    - name: Kyle M. Douglass
+      orcid: 0000-0003-4694-0922
+  # github:
+  # To autogenerate a Table of Contents, run "jupyter book init --write-toc"
+  toc:
+    - file: docs/intro.md
+    - file: docs/requirements.md
+site:
+  template: book-theme
+  # options:
+  #   favicon: favicon.ico
+  #   logo: site_logo.png
