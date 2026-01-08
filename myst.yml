@@ -4,6 +4,7 @@ project:
   id: ee206a98-e151-4e0f-b588-4d09bdb35e6d
   title: Circularly Polarized LED Illuminator
   description: A design for a LED illumination module emitting circularly polarized light for optogenetic control of protein states.
+  license: CC-BY-4.0
   keywords:
     - optics
     - polarization
