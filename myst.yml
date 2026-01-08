@@ -15,8 +15,8 @@ project:
   # github:
   # To autogenerate a Table of Contents, run "jupyter book init --write-toc"
   toc:
-    - file: docs/intro.md
-    - file: docs/requirements.md
+    - file: content/intro.md
+    - file: content/requirements.md
 site:
   template: book-theme
   # options:
