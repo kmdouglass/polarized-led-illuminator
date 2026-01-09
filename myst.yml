@@ -19,6 +19,7 @@ project:
     - file: content/intro.md
     - file: content/requirements.md
     - file: content/asphere_collimator.ipynb
+    - file: content/led_source_modeling.ipynb
 site:
   template: book-theme
   # options:
