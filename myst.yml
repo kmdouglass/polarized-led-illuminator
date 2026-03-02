@@ -20,6 +20,8 @@ project:
     - file: content/requirements.md
     - file: content/asphere_collimator.ipynb
     - file: content/led_source_modeling.ipynb
+    - file: content/polarization.ipynb
+    - file: content/ray_tracing.ipynb
 site:
   template: book-theme
   # options:
