@@ -22,8 +22,12 @@ project:
     - file: content/led_source_modeling.ipynb
     - file: content/polarization.ipynb
     - file: content/ray_tracing.ipynb
+    - file: content/build.md
 site:
   template: book-theme
-  # options:
+  parts:
+    primary_sidebar_footer: content/sidebar_footer.md
+  options:
+    logo_text: Kyle M. Douglass - Circularly Polarized LED Illuminator
   #   favicon: favicon.ico
   #   logo: site_logo.png
