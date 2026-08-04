@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
 import numpy as np
+import optiland.backend as be
 from optiland import optic
+from optiland.rays import PolarizationState
 from optiland.rays.real_rays import RealRays
 
 
@@ -64,7 +66,7 @@ class LED:
         n = np.cos(theta)
 
         # Ray intensities
-        watts_per_ray = power_watts / num_rays
+        watts_per_ray = np.full(num_rays, power_watts / num_rays)
 
         # Wavelengths
         wavelengths_um = np.random.normal(
@@ -72,3 +74,84 @@ class LED:
         )
 
         return RealRays(x, y, z, l, m, n, watts_per_ray, wavelengths_um)
+
+
+def propagate_to_z(rays, z_target):
+    """Free-space drift of ray (x, y) to a target z plane."""
+    dz = z_target - be.to_numpy(rays.z)
+    x = be.to_numpy(rays.x) + be.to_numpy(rays.L) / be.to_numpy(rays.N) * dz
+    y = be.to_numpy(rays.y) + be.to_numpy(rays.M) / be.to_numpy(rays.N) * dz
+    return x, y
+
+
+def _finite_mask(*arrays):
+    """Rays vignetted upstream carry NaN x/y/z/i - drop them before binning."""
+    mask = np.ones(arrays[0].shape, dtype=bool)
+    for a in arrays:
+        mask &= np.isfinite(a)
+    return mask
+
+
+def beam_radius(rays, z_target):
+    """Max |x| or |y| among surviving rays at z_target - used to size a fixed
+    grid extent so heat maps at different z share the same pixel scale."""
+    x, y = propagate_to_z(rays, z_target)
+    power = be.to_numpy(rays.i)
+    valid = _finite_mask(x, y, power) & (power > 0)
+    x, y = x[valid], y[valid]
+    return max(np.abs(x).max(), np.abs(y).max())
+
+
+def irradiance_map(rays, z_target, bins=128, extent=None):
+    x, y = propagate_to_z(rays, z_target)
+    power = be.to_numpy(rays.i)
+    valid = _finite_mask(x, y, power) & (power > 0)
+    x, y, power = x[valid], y[valid], power[valid]
+
+    if extent is None:
+        r = max(np.abs(x).max(), np.abs(y).max())
+        extent = (-r, r, -r, r)
+    x_edges = np.linspace(extent[0], extent[1], bins + 1)
+    y_edges = np.linspace(extent[2], extent[3], bins + 1)
+
+    hist, _, _ = np.histogram2d(x, y, bins=[x_edges, y_edges], weights=power)
+    pixel_area = (x_edges[1] - x_edges[0]) * (y_edges[1] - y_edges[0])
+    return hist / pixel_area, x_edges, y_edges
+
+
+def stokes_components(rays):
+    """Per-ray Stokes parameters, decomposing an unpolarized source into an
+    incoherent 50/50 mix of two orthogonal input states (same convention as
+    `PolarizedRays.update_intensity` for `is_polarized=False`)."""
+    state_x = PolarizationState(is_polarized=True, Ex=1.0, Ey=0.0, phase_x=0.0, phase_y=0.0)
+    state_y = PolarizationState(is_polarized=True, Ex=0.0, Ey=1.0, phase_x=0.0, phase_y=0.0)
+
+    E1_x = be.to_numpy(rays.get_output_field(rays._get_3d_electric_field(state_x)))
+    E1_y = be.to_numpy(rays.get_output_field(rays._get_3d_electric_field(state_y)))
+    i0 = be.to_numpy(rays._i0)
+
+    Ex1, Ey1 = E1_x[:, 0], E1_x[:, 1]   # global-frame transverse components
+    Ex2, Ey2 = E1_y[:, 0], E1_y[:, 1]
+
+    S0 = 0.5 * (np.abs(Ex1) ** 2 + np.abs(Ey1) ** 2 + np.abs(Ex2) ** 2 + np.abs(Ey2) ** 2) * i0
+    S1 = 0.5 * (np.abs(Ex1) ** 2 - np.abs(Ey1) ** 2 + np.abs(Ex2) ** 2 - np.abs(Ey2) ** 2) * i0
+    S2 = (np.real(Ex1 * np.conj(Ey1)) + np.real(Ex2 * np.conj(Ey2))) * i0
+    S3 = (np.imag(Ex1 * np.conj(Ey1)) + np.imag(Ex2 * np.conj(Ey2))) * i0
+    return S0, S1, S2, S3   # S0 equals rays.i after update_intensity(is_polarized=False)
+
+
+def stokes_map(rays, z_target, bins=128, extent=None):
+    x, y = propagate_to_z(rays, z_target)
+    S0, S1, S2, S3 = stokes_components(rays)
+    valid = _finite_mask(x, y, S0, S1, S2, S3) & (S0 > 0)
+    x, y = x[valid], y[valid]
+    S0, S1, S2, S3 = S0[valid], S1[valid], S2[valid], S3[valid]
+
+    if extent is None:
+        r = max(np.abs(x).max(), np.abs(y).max())
+        extent = (-r, r, -r, r)
+    x_edges = np.linspace(extent[0], extent[1], bins + 1)
+    y_edges = np.linspace(extent[2], extent[3], bins + 1)
+
+    maps = [np.histogram2d(x, y, bins=[x_edges, y_edges], weights=S)[0] for S in (S0, S1, S2, S3)]
+    return (*maps, x_edges, y_edges)
